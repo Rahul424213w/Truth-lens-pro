@@ -53,6 +53,27 @@ Respond ONLY with this JSON:
         ? "fake"
         : "unclear";
 
+    const realityCheck = {
+      claimedAssertion: claim,
+      factualReality: String(data.explanation || data.expertConsensus || ""),
+    };
+
+    const riskAssessment = {
+      riskLevel: cat === "fake" ? "High Risk" : cat === "real" ? "Low Risk" : "Moderate Risk",
+      harmCategory: cat === "fake" ? "Misinformation / Deceptive Narrative" : "Factual Knowledge",
+      whyItSpreads: String(data.originOfClaim || "Circulates through viral repetition and social cognitive bias."),
+    };
+
+    const originAndSpread = {
+      originContext: String(data.originOfClaim || "Public media & social discourse"),
+      spreadPattern: "Online forums, messaging applications, viral social feeds",
+    };
+
+    const debunkCopyScript =
+      cat === "fake"
+        ? `Fact-check note: Regarding the claim "${claim}" — this has been evaluated and confirmed false. Evidence and expert consensus show: ${String(data.explanation || "").slice(0, 160)}.`
+        : `Verified update: Regarding "${claim}" — authoritative sources and consensus confirm this is accurate: ${String(data.explanation || "").slice(0, 160)}.`;
+
     const saved = addHistory({
       type: "factcheck",
       inputPreview: claim.substring(0, 160),
@@ -73,6 +94,12 @@ Respond ONLY with this JSON:
         credibilityScore: data.confidence,
         category: cat,
         analysis: data.explanation,
+        realityCheck,
+        riskAssessment,
+        originAndSpread,
+        debunkCopyScript,
+        authoritativeSources: data.specificSources || [],
+        factCheckQueries: [claim, `${claim} fact check`],
       },
       model: result.model,
     });

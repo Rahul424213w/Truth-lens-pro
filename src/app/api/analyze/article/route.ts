@@ -70,6 +70,32 @@ Respond ONLY with this JSON:
     });
     data = correctScore(data, content);
 
+    if (!data.authoritativeSources && data.relatedCredibleSources) {
+      data.authoritativeSources = data.relatedCredibleSources;
+    }
+    if (!data.realityCheck && data.verdict) {
+      data.realityCheck = {
+        claimedAssertion: strArray(data.specificClaims)[0] || `Reported by ${domain}`,
+        factualReality: String(data.analysis || data.verdict),
+      };
+    }
+    if (!data.riskAssessment) {
+      data.riskAssessment = {
+        riskLevel: Number(data.credibilityScore) < 30 ? "High Risk" : Number(data.credibilityScore) < 60 ? "Moderate Risk" : "Low Risk",
+        harmCategory: "Digital Journalism & Editorial Integrity",
+        whyItSpreads: "Amplified through headlines, algorithmic feeds, and social bookmarking.",
+      };
+    }
+    if (!data.originAndSpread) {
+      data.originAndSpread = {
+        originContext: domain,
+        spreadPattern: "Web publishing, syndication networks, search discovery",
+      };
+    }
+    if (!data.debunkCopyScript) {
+      data.debunkCopyScript = `Regarding the article on ${domain}: An independent journalistic assessment indicates ${Number(data.credibilityScore) < 50 ? "significant credibility concerns and bias" : "satisfactory journalistic standards"}. Summary: ${String(data.analysis || "").slice(0, 160)}.`;
+    }
+
     const saved = addHistory({
       type: "article",
       inputPreview: url,

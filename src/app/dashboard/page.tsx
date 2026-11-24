@@ -56,7 +56,24 @@ interface AnalysisData {
   verdict: string;
   analysis: string;
   consensusFact?: string;
+  realityCheck?: {
+    claimedAssertion: string;
+    factualReality: string;
+    scientificOrHistoricalTruth?: string;
+  };
   extractedClaims?: ExtractedClaim[];
+  riskAssessment?: {
+    riskLevel?: string;
+    harmCategory?: string;
+    whyItSpreads?: string;
+  };
+  originAndSpread?: {
+    originContext?: string;
+    likelyOrigin?: string;
+    spreadPattern?: string;
+    intendedAudience?: string;
+  };
+  authoritativeSources?: string[];
   redFlags?: string[];
   positiveSignals?: string[];
   biasDiagnostics?: {
@@ -64,8 +81,34 @@ interface AnalysisData {
     tone?: string;
     manipulationTechnique?: string;
   };
+  debunkCopyScript?: string;
   verificationSteps?: string[];
   factCheckQueries?: string[];
+  // For article analysis:
+  sourceAssessment?: {
+    domain?: string;
+    domainType?: string;
+    knownBias?: string;
+    reliabilityRating?: string;
+    notes?: string;
+  };
+  journalisticStandards?: {
+    hasAuthor?: boolean;
+    hasDate?: boolean;
+    hasSources?: boolean;
+    hasQuotes?: boolean;
+    editorialStandards?: string;
+  };
+  specificClaims?: string[];
+  claimAccuracy?: string[];
+  relatedCredibleSources?: string[];
+  // For fact check:
+  expertConsensus?: string;
+  originOfClaim?: string;
+  keyFacts?: string[];
+  relatedMisconceptions?: string[];
+  specificSources?: string[];
+  // For image check:
   technicalAnalysis?: Record<string, string>;
   manipulationSigns?: string[];
   authenticitySignals?: string[];
