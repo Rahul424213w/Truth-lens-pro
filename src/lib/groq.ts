@@ -111,6 +111,106 @@ export async function callGroq(
   return generateHeuristicAnalysis(trimmed);
 }
 
+export async function callGroqMessages(
+  messages: Array<{ role: "system" | "user" | "assistant"; content: string }>,
+  options: { json?: boolean; temperature?: number; max_tokens?: number } = {}
+): Promise<{ success: boolean; text: string; model: string | null; error?: string }> {
+  if (!groq) {
+    const lastUser = [...messages].reverse().find((m) => m.role === "user")?.content || "";
+    return generateHeuristicAnalysis(lastUser);
+  }
+
+  let lastErr: { status?: number; message?: string } | null = null;
+  for (const model of TEXT_MODELS) {
+    if (isCD(model)) continue;
+
+    for (let attempt = 0; attempt < 2; attempt++) {
+      try {
+        if (attempt > 0) await new Promise((r) => setTimeout(r, 1000 * attempt));
+        const res = await groq.chat.completions.create({
+          model,
+          messages,
+          ...(options.json ? { response_format: { type: "json_object" } } : {}),
+          temperature: options.temperature ?? 0.2,
+          max_tokens: options.max_tokens ?? 3000,
+        });
+        const text = res.choices?.[0]?.message?.content || "";
+        if (!text.trim()) {
+          lastErr = { message: `${model} returned empty` };
+          continue;
+        }
+        return { success: true, text, model };
+      } catch (e: unknown) {
+        const err = e as { status?: number; message?: string };
+        lastErr = err;
+        if (err.status === 404 || /not found|decommissioned/i.test(err.message || "")) {
+          setCD(model, 3600000);
+          break;
+        }
+        if (isRL(err)) {
+          setCD(model, 60000);
+          break;
+        }
+      }
+    }
+  }
+
+  const lastUser = [...messages].reverse().find((m) => m.role === "user")?.content || "";
+  return generateHeuristicAnalysis(lastUser);
+}
+
+export async function streamGroqMessages(
+  messages: Array<{ role: "system" | "user" | "assistant"; content: string }>,
+  onToken: (token: string) => void,
+  options: { temperature?: number; max_tokens?: number } = {}
+): Promise<{ success: boolean; model: string | null; fullText: string }> {
+  if (!groq) {
+    const lastUser = [...messages].reverse().find((m) => m.role === "user")?.content || "";
+    const h = generateHeuristicAnalysis(lastUser);
+    onToken(h.text);
+    return { success: true, model: h.model, fullText: h.text };
+  }
+
+  for (const model of TEXT_MODELS) {
+    if (isCD(model)) continue;
+
+    try {
+      const stream = await groq.chat.completions.create({
+        model,
+        messages,
+        temperature: options.temperature ?? 0.2,
+        max_tokens: options.max_tokens ?? 2500,
+        stream: true,
+      });
+
+      let fullText = "";
+      for await (const chunk of stream) {
+        const token = chunk.choices[0]?.delta?.content || "";
+        if (token) {
+          fullText += token;
+          onToken(token);
+        }
+      }
+
+      if (fullText.trim()) {
+        return { success: true, model, fullText };
+      }
+    } catch (e: unknown) {
+      const err = e as { status?: number; message?: string };
+      if (err.status === 404 || /not found|decommissioned/i.test(err.message || "")) {
+        setCD(model, 3600000);
+      } else if (isRL(err)) {
+        setCD(model, 60000);
+      }
+    }
+  }
+
+  const lastUser = [...messages].reverse().find((m) => m.role === "user")?.content || "";
+  const h = generateHeuristicAnalysis(lastUser);
+  onToken(h.text);
+  return { success: true, model: h.model, fullText: h.text };
+}
+
 function generateHeuristicAnalysis(prompt: string): { success: boolean; text: string; model: string } {
   const lower = prompt.toLowerCase();
   let score = 78;

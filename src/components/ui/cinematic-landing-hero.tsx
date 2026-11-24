@@ -313,14 +313,22 @@ export function CinematicHero({
         <p className="text-muted-foreground text-lg md:text-xl mb-12 max-w-xl mx-auto font-light leading-relaxed">
           {ctaDescription}
         </p>
-        <div className="flex justify-center">
+        <div className="flex flex-wrap items-center justify-center gap-4">
           <Link
-            href="/dashboard"
-            aria-label="Try Truth Lens"
+            href="/chat"
+            aria-label="Try Truth Lens Chat"
             className="btn-modern-light flex items-center justify-center gap-3 px-8 py-4 rounded-[1.25rem] group focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
           >
-            <span className="text-xl font-bold leading-none tracking-tight">Try Truth Lens</span>
+            <span className="text-xl font-bold leading-none tracking-tight">Launch AI Chat</span>
             <ArrowRight className="w-6 h-6 transition-transform group-hover:translate-x-1" />
+          </Link>
+          <Link
+            href="/dashboard"
+            aria-label="Open Forensic Dashboard"
+            className="flex items-center justify-center gap-2 px-6 py-4 rounded-[1.25rem] bg-slate-900/80 hover:bg-slate-800 border border-slate-700/80 text-slate-200 font-semibold text-base transition-all focus:outline-none focus:ring-2 focus:ring-slate-500"
+          >
+            <span>Forensic Dashboard</span>
+            <ArrowRight className="w-5 h-5 text-slate-400" />
           </Link>
         </div>
       </div>

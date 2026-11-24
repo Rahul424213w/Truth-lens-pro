@@ -201,6 +201,7 @@ export default function DashboardPage() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [debunkCopied, setDebunkCopied] = useState(false);
   const [toast, setToast] = useState<{ message: string; type: "success" | "error" | "info" } | null>(null);
 
   // Forms
@@ -222,6 +223,13 @@ export default function DashboardPage() {
   const showToast = (message: string, type: "success" | "error" | "info" = "info") => {
     setToast({ message, type });
     setTimeout(() => setToast(null), 3500);
+  };
+
+  const copyDebunkScript = (text: string) => {
+    navigator.clipboard.writeText(text);
+    setDebunkCopied(true);
+    showToast("Debunk script copied to clipboard!", "success");
+    setTimeout(() => setDebunkCopied(false), 2500);
   };
 
   const switchTab = (tabId: string) => {
@@ -395,11 +403,19 @@ export default function DashboardPage() {
         </div>
 
         {/* Engine status & landing link */}
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2.5">
           <div className="hidden sm:flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/25 text-emerald-400 text-xs font-mono">
             <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
             <span>Groq GPT-OSS 120B Connected</span>
           </div>
+
+          <Link
+            href="/chat"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-white bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-500 hover:to-cyan-500 shadow-md shadow-blue-900/30 transition-all"
+          >
+            <Sparkles className="w-3.5 h-3.5" />
+            <span>AI Chatbot</span>
+          </Link>
 
           <Link
             href="/"
@@ -431,6 +447,20 @@ export default function DashboardPage() {
                 <p className="text-[10px] text-emerald-400 font-mono">{history.length} claims verified</p>
               </div>
             </div>
+          </div>
+
+          {/* AI Chat Shortcut */}
+          <div className="p-2.5 border-b border-slate-800/60">
+            <Link
+              href="/chat"
+              className="w-full p-2.5 rounded-xl bg-gradient-to-r from-cyan-600/20 to-blue-600/20 hover:from-cyan-600/30 hover:to-blue-600/30 border border-cyan-500/40 text-cyan-200 hover:text-white text-xs font-semibold flex items-center justify-between transition-all group"
+            >
+              <span className="flex items-center gap-2">
+                <Sparkles className="w-3.5 h-3.5 text-cyan-400 group-hover:scale-110 transition-transform" />
+                <span>Conversational AI Chat</span>
+              </span>
+              <ArrowRight className="w-3.5 h-3.5 text-cyan-400" />
+            </Link>
           </div>
 
           {/* Nav items */}
@@ -826,6 +856,84 @@ export default function DashboardPage() {
                   </div>
                 )}
 
+                {/* Side-by-side Factual Reality Check */}
+                {results.realityCheck && (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+                    <div className="p-4 rounded-xl bg-rose-950/20 border border-rose-500/30 space-y-1.5">
+                      <div className="flex items-center gap-1.5 text-rose-400 text-xs font-bold uppercase font-mono">
+                        <XCircle className="w-3.5 h-3.5" />
+                        <span>Claimed Narrative</span>
+                      </div>
+                      <p className="text-xs text-rose-200/90 leading-relaxed font-medium">
+                        "{results.realityCheck.claimedAssertion}"
+                      </p>
+                    </div>
+                    <div className="p-4 rounded-xl bg-emerald-950/20 border border-emerald-500/30 space-y-1.5">
+                      <div className="flex items-center gap-1.5 text-emerald-400 text-xs font-bold uppercase font-mono">
+                        <CheckCircle2 className="w-3.5 h-3.5" />
+                        <span>Verified Factual Reality</span>
+                      </div>
+                      <p className="text-xs text-emerald-200/90 leading-relaxed font-medium">
+                        {results.realityCheck.factualReality}
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                {/* Threat & Spread Intelligence */}
+                {(results.riskAssessment || results.originAndSpread) && (
+                  <div className="p-4 rounded-xl bg-[#090f20] border border-slate-800 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <h4 className="text-xs font-bold text-slate-300 uppercase tracking-wider font-mono flex items-center gap-1.5">
+                        <AlertTriangle className="w-3.5 h-3.5 text-amber-400" />
+                        <span>Threat & Propagation Intelligence</span>
+                      </h4>
+                      {results.riskAssessment?.riskLevel && (
+                        <span
+                          className={cn(
+                            "text-[10px] font-mono px-2 py-0.5 rounded font-bold uppercase border",
+                            results.riskAssessment.riskLevel.toLowerCase().includes("critical")
+                              ? "bg-rose-500/15 text-rose-400 border-rose-500/40"
+                              : results.riskAssessment.riskLevel.toLowerCase().includes("high")
+                              ? "bg-orange-500/15 text-orange-400 border-orange-500/40"
+                              : "bg-blue-500/15 text-blue-400 border-blue-500/40"
+                          )}
+                        >
+                          {results.riskAssessment.riskLevel}
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                      {results.riskAssessment?.harmCategory && (
+                        <div className="p-3 rounded-lg bg-slate-900/80 border border-slate-800/80 space-y-1">
+                          <span className="text-[10px] font-mono text-slate-400 uppercase block">Harm Domain</span>
+                          <span className="text-xs font-semibold text-slate-200 block">{results.riskAssessment.harmCategory}</span>
+                        </div>
+                      )}
+                      {results.originAndSpread?.spreadPattern && (
+                        <div className="p-3 rounded-lg bg-slate-900/80 border border-slate-800/80 space-y-1">
+                          <span className="text-[10px] font-mono text-slate-400 uppercase block">Vector / Pattern</span>
+                          <span className="text-xs font-semibold text-slate-200 block">{results.originAndSpread.spreadPattern}</span>
+                        </div>
+                      )}
+                      {results.riskAssessment?.whyItSpreads && (
+                        <div className="p-3 rounded-lg bg-slate-900/80 border border-slate-800/80 space-y-1">
+                          <span className="text-[10px] font-mono text-slate-400 uppercase block">Psychological Hook</span>
+                          <span className="text-xs font-semibold text-slate-200 block">{results.riskAssessment.whyItSpreads}</span>
+                        </div>
+                      )}
+                    </div>
+
+                    {results.originAndSpread?.originContext && (
+                      <div className="pt-2 border-t border-slate-850 text-xs text-slate-400 flex items-start gap-2">
+                        <span className="text-slate-500 font-mono text-[10px] font-bold uppercase">Documented Origin:</span>
+                        <span className="text-slate-300 text-xs">{results.originAndSpread.originContext}</span>
+                      </div>
+                    )}
+                  </div>
+                )}
+
                 {/* Extracted Atomic Claims Breakdown */}
                 {results.extractedClaims && results.extractedClaims.length > 0 && (
                   <div className="space-y-2.5">
@@ -855,6 +963,102 @@ export default function DashboardPage() {
                         </div>
                       ))}
                     </div>
+                  </div>
+                )}
+
+                {/* Accredited Institutions & Authoritative References */}
+                {((results.authoritativeSources && results.authoritativeSources.length > 0) ||
+                  (results.specificSources && results.specificSources.length > 0) ||
+                  (results.relatedCredibleSources && results.relatedCredibleSources.length > 0)) && (
+                  <div className="p-4 rounded-xl bg-slate-900/60 border border-slate-800 space-y-2">
+                    <h4 className="text-xs font-bold text-slate-300 uppercase tracking-wider font-mono flex items-center gap-1.5">
+                      <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
+                      <span>Accredited Institutions & Authoritative References</span>
+                    </h4>
+                    <div className="flex flex-wrap gap-2 pt-1">
+                      {(results.authoritativeSources || results.specificSources || results.relatedCredibleSources || []).map((source, idx) => (
+                        <span
+                          key={idx}
+                          className="text-xs px-2.5 py-1 rounded-md bg-blue-500/10 border border-blue-500/25 text-blue-300 font-medium flex items-center gap-1.5"
+                        >
+                          <span className="w-1.5 h-1.5 rounded-full bg-blue-400" />
+                          {source}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* 1-Click Shareable Debunk Script */}
+                {results.debunkCopyScript && (
+                  <div className="p-4 rounded-xl bg-purple-500/10 border border-purple-500/25 space-y-2.5">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-1.5 text-purple-300 text-xs font-bold uppercase font-mono">
+                        <Sparkles className="w-3.5 h-3.5 text-purple-400" />
+                        <span>1-Click Shareable Debunk Script (For WhatsApp / Socials)</span>
+                      </div>
+                      <button
+                        onClick={() => copyDebunkScript(results.debunkCopyScript!)}
+                        className="px-2.5 py-1 rounded-md bg-purple-600/30 hover:bg-purple-600/50 text-xs font-semibold text-purple-200 border border-purple-500/40 flex items-center gap-1.5 transition-colors"
+                      >
+                        {debunkCopied ? <Check className="w-3.5 h-3.5 text-emerald-300" /> : <Copy className="w-3.5 h-3.5" />}
+                        <span>{debunkCopied ? "Copied!" : "Copy Script"}</span>
+                      </button>
+                    </div>
+                    <div className="p-3 rounded-lg bg-[#070b14]/70 border border-purple-500/20 text-xs text-slate-200 leading-relaxed font-mono">
+                      "{results.debunkCopyScript}"
+                    </div>
+                    <p className="text-[10px] text-purple-300/70">
+                      Tip: Paste this polite, fact-based rebuttal into family group chats, forum replies, or social feeds to defuse misinformation without confrontation.
+                    </p>
+                  </div>
+                )}
+
+                {/* Journalistic Integrity & Standards Audit (For Articles) */}
+                {results.journalisticStandards && (
+                  <div className="p-4 rounded-xl bg-[#090f20] border border-slate-800 space-y-3">
+                    <h4 className="text-xs font-bold text-slate-300 uppercase tracking-wider font-mono flex items-center gap-1.5">
+                      <Globe className="w-3.5 h-3.5 text-blue-400" />
+                      <span>Journalistic Integrity & Standards Audit</span>
+                    </h4>
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+                      <div className="p-2.5 rounded-lg bg-slate-900/80 border border-slate-800 flex items-center justify-between">
+                        <span className="text-xs text-slate-300">Bylined Author</span>
+                        {results.journalisticStandards.hasAuthor ? <CheckCircle2 className="w-4 h-4 text-emerald-400" /> : <XCircle className="w-4 h-4 text-rose-400" />}
+                      </div>
+                      <div className="p-2.5 rounded-lg bg-slate-900/80 border border-slate-800 flex items-center justify-between">
+                        <span className="text-xs text-slate-300">Publication Date</span>
+                        {results.journalisticStandards.hasDate ? <CheckCircle2 className="w-4 h-4 text-emerald-400" /> : <XCircle className="w-4 h-4 text-rose-400" />}
+                      </div>
+                      <div className="p-2.5 rounded-lg bg-slate-900/80 border border-slate-800 flex items-center justify-between">
+                        <span className="text-xs text-slate-300">Primary Sources</span>
+                        {results.journalisticStandards.hasSources ? <CheckCircle2 className="w-4 h-4 text-emerald-400" /> : <XCircle className="w-4 h-4 text-rose-400" />}
+                      </div>
+                      <div className="p-2.5 rounded-lg bg-slate-900/80 border border-slate-800 flex items-center justify-between">
+                        <span className="text-xs text-slate-300">Direct Quotes</span>
+                        {results.journalisticStandards.hasQuotes ? <CheckCircle2 className="w-4 h-4 text-emerald-400" /> : <XCircle className="w-4 h-4 text-rose-400" />}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Actionable Verification Protocol */}
+                {results.verificationSteps && results.verificationSteps.length > 0 && (
+                  <div className="p-4 rounded-xl bg-slate-900/60 border border-slate-800 space-y-2.5">
+                    <h4 className="text-xs font-bold text-slate-300 uppercase tracking-wider font-mono flex items-center gap-1.5">
+                      <Search className="w-3.5 h-3.5 text-cyan-400" />
+                      <span>Actionable Verification Protocol</span>
+                    </h4>
+                    <ol className="space-y-1.5 text-xs text-slate-300">
+                      {results.verificationSteps.map((step, idx) => (
+                        <li key={idx} className="flex items-start gap-2">
+                          <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-slate-800 text-cyan-400 font-bold">
+                            {idx + 1}
+                          </span>
+                          <span className="pt-0.5">{step}</span>
+                        </li>
+                      ))}
+                    </ol>
                   </div>
                 )}
 
