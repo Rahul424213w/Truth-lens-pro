@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { callGroq, parseJSON, strArray, correctScore } from "@/lib/groq";
 import { addHistory } from "@/lib/storage";
+import { getErrorMessage } from "@/lib/utils";
 
 export async function POST(req: NextRequest) {
   try {
@@ -111,7 +112,7 @@ Respond ONLY with this JSON:
     });
 
     return NextResponse.json({ success: true, data: { ...data, _id: saved._id }, model: result.model });
-  } catch (err: any) {
-    return NextResponse.json({ success: false, error: err.message || "Article analysis failed" }, { status: 500 });
+  } catch (err: unknown) {
+    return NextResponse.json({ success: false, error: getErrorMessage(err, "Article analysis failed") }, { status: 500 });
   }
 }

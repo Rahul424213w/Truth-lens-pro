@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { callGroq, parseJSON, strArray } from "@/lib/groq";
 import { addHistory } from "@/lib/storage";
+import { getErrorMessage } from "@/lib/utils";
 
 export async function POST(req: NextRequest) {
   try {
@@ -33,7 +34,7 @@ Respond ONLY with this JSON:
 }`;
 
     const result = await callGroq(prompt);
-    let data = parseJSON(result.text);
+    const data = parseJSON(result.text);
     if (!data) {
       return NextResponse.json({ success: false, error: "AI returned unreadable response." }, { status: 502 });
     }
@@ -103,7 +104,7 @@ Respond ONLY with this JSON:
       },
       model: result.model,
     });
-  } catch (err: any) {
-    return NextResponse.json({ success: false, error: err.message || "Fact check failed" }, { status: 500 });
+  } catch (err: unknown) {
+    return NextResponse.json({ success: false, error: getErrorMessage(err, "Fact check failed") }, { status: 500 });
   }
 }

@@ -63,7 +63,6 @@ export async function callGroq(
 
   if (!groq) return generateHeuristicAnalysis(trimmed);
 
-  let lastErr: { status?: number; message?: string } | null = null;
   for (const model of TEXT_MODELS) {
     if (isCD(model)) continue;
 
@@ -86,7 +85,6 @@ export async function callGroq(
         });
         const text = res.choices?.[0]?.message?.content || "";
         if (!text.trim()) {
-          lastErr = { message: `${model} returned empty` };
           continue;
         }
         const r = { success: true, text, model };
@@ -94,7 +92,6 @@ export async function callGroq(
         return r;
       } catch (e: unknown) {
         const err = e as { status?: number; message?: string };
-        lastErr = err;
         if (err.status === 404 || /not found|decommissioned/i.test(err.message || "")) {
           setCD(model, 3600000);
           break;
@@ -120,7 +117,6 @@ export async function callGroqMessages(
     return generateHeuristicAnalysis(lastUser);
   }
 
-  let lastErr: { status?: number; message?: string } | null = null;
   for (const model of TEXT_MODELS) {
     if (isCD(model)) continue;
 
@@ -136,13 +132,11 @@ export async function callGroqMessages(
         });
         const text = res.choices?.[0]?.message?.content || "";
         if (!text.trim()) {
-          lastErr = { message: `${model} returned empty` };
           continue;
         }
         return { success: true, text, model };
       } catch (e: unknown) {
         const err = e as { status?: number; message?: string };
-        lastErr = err;
         if (err.status === 404 || /not found|decommissioned/i.test(err.message || "")) {
           setCD(model, 3600000);
           break;
@@ -331,6 +325,23 @@ export function parseJSON(text: string): Record<string, unknown> | null {
 
 export function strArray(v: unknown): string[] {
   return Array.isArray(v) ? v.filter((x) => x != null).map(String).slice(0, 50) : [];
+}
+
+/** Narrows an unknown JSON value to a plain object. */
+export function asRecord(v: unknown): Record<string, unknown> | undefined {
+  return v !== null && typeof v === "object" && !Array.isArray(v)
+    ? (v as Record<string, unknown>)
+    : undefined;
+}
+
+/** Narrows an unknown JSON value to an array of plain objects. */
+export function asRecordArray(v: unknown): Record<string, unknown>[] | undefined {
+  if (!Array.isArray(v)) return undefined;
+  const records = v.filter(
+    (item): item is Record<string, unknown> =>
+      item !== null && typeof item === "object" && !Array.isArray(item)
+  );
+  return records.length > 0 ? records : undefined;
 }
 
 export function correctScore(data: Record<string, unknown>, inputText: string): Record<string, unknown> {

@@ -7,6 +7,7 @@ import {
   clearAllConversations,
   ChatConversation,
 } from "@/lib/storage";
+import { getErrorMessage } from "@/lib/utils";
 
 export async function GET(req: NextRequest) {
   try {
@@ -28,8 +29,8 @@ export async function GET(req: NextRequest) {
     );
 
     return NextResponse.json({ success: true, data: sorted });
-  } catch (err: any) {
-    return NextResponse.json({ success: false, error: err.message || "Failed to get conversations" }, { status: 500 });
+  } catch (err: unknown) {
+    return NextResponse.json({ success: false, error: getErrorMessage(err, "Failed to get conversations") }, { status: 500 });
   }
 }
 
@@ -46,8 +47,8 @@ export async function POST(req: NextRequest) {
 
     saveConversation(newConv);
     return NextResponse.json({ success: true, data: newConv });
-  } catch (err: any) {
-    return NextResponse.json({ success: false, error: err.message || "Failed to create conversation" }, { status: 500 });
+  } catch (err: unknown) {
+    return NextResponse.json({ success: false, error: getErrorMessage(err, "Failed to create conversation") }, { status: 500 });
   }
 }
 
@@ -63,7 +64,7 @@ export async function DELETE(req: NextRequest) {
 
     const deleted = deleteConversation(id);
     return NextResponse.json({ success: deleted });
-  } catch (err: any) {
-    return NextResponse.json({ success: false, error: err.message || "Failed to delete conversation" }, { status: 500 });
+  } catch (err: unknown) {
+    return NextResponse.json({ success: false, error: getErrorMessage(err, "Failed to delete conversation") }, { status: 500 });
   }
 }

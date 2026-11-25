@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { callGroq, parseJSON, strArray } from "@/lib/groq";
 import { addHistory } from "@/lib/storage";
+import { getErrorMessage } from "@/lib/utils";
 
 export async function POST(req: NextRequest) {
   try {
@@ -36,7 +37,7 @@ Respond ONLY with this JSON:
 }`;
 
     const result = await callGroq(prompt);
-    let data = parseJSON(result.text);
+    const data = parseJSON(result.text);
     if (!data) {
       return NextResponse.json({ success: false, error: "AI returned unreadable response." }, { status: 502 });
     }
@@ -65,7 +66,7 @@ Respond ONLY with this JSON:
     });
 
     return NextResponse.json({ success: true, data: { ...data, _id: saved._id }, model: result.model });
-  } catch (err: any) {
-    return NextResponse.json({ success: false, error: err.message || "Comparison failed" }, { status: 500 });
+  } catch (err: unknown) {
+    return NextResponse.json({ success: false, error: getErrorMessage(err, "Comparison failed") }, { status: 500 });
   }
 }

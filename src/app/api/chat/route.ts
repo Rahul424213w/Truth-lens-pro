@@ -1,11 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
+import { getConversation, saveConversation, ChatMessage } from "@/lib/storage";
 import {
-  getConversation,
-  saveConversation,
-  ChatMessage,
-  ChatConversation,
-} from "@/lib/storage";
-import { callGroq, callGroqMessages, parseJSON, strArray, correctScore } from "@/lib/groq";
+  callGroq,
+  callGroqMessages,
+  parseJSON,
+  strArray,
+  correctScore,
+  asRecord,
+  asRecordArray,
+} from "@/lib/groq";
+import { getErrorMessage } from "@/lib/utils";
 
 function detectIntent(
   message: string,
@@ -49,7 +53,7 @@ function detectIntent(
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { conversationId, message, attachment, stream = false } = body;
+    const { conversationId, message, attachment } = body;
 
     if (!message && !attachment) {
       return NextResponse.json({ success: false, error: "Message or attachment is required" }, { status: 400 });
@@ -149,8 +153,8 @@ Output ONLY one valid JSON object (no markdown fences, no extraneous preamble):
       const groqRes = await callGroq(factCheckPrompt);
       let parsed = parseJSON(groqRes.text);
 
-      let isHeuristic = !groqRes.model || groqRes.model.includes("hybrid-verified");
-      let engineName = isHeuristic
+      const isHeuristic = !groqRes.model || groqRes.model.includes("hybrid-verified");
+      const engineName = isHeuristic
         ? "Truth Lens Heuristic Analysis Engine (Fallback)"
         : `Groq AI Intelligence (${groqRes.model})`;
 
@@ -186,10 +190,10 @@ Output ONLY one valid JSON object (no markdown fences, no extraneous preamble):
           verdict: String(parsed.verdict || "Analysis Complete"),
           analysis: String(parsed.analysis || conversationalReply),
           consensusFact: parsed.consensusFact ? String(parsed.consensusFact) : undefined,
-          realityCheck: parsed.realityCheck as any,
-          extractedClaims: parsed.extractedClaims as any,
-          riskAssessment: parsed.riskAssessment as any,
-          originAndSpread: parsed.originAndSpread as any,
+          realityCheck: asRecord(parsed.realityCheck),
+          extractedClaims: asRecordArray(parsed.extractedClaims),
+          riskAssessment: asRecord(parsed.riskAssessment),
+          originAndSpread: asRecord(parsed.originAndSpread),
           authoritativeSources: strArray(parsed.authoritativeSources),
           redFlags: strArray(parsed.redFlags),
           positiveSignals: strArray(parsed.positiveSignals),
@@ -282,9 +286,9 @@ GUIDELINES:
       userMessage: userMsg,
       assistantMessage: assistantMsg,
     });
-  } catch (err: any) {
+  } catch (err: unknown) {
     return NextResponse.json(
-      { success: false, error: err.message || "Chat processing failed" },
+      { success: false, error: getErrorMessage(err, "Chat processing failed") },
       { status: 500 }
     );
   }

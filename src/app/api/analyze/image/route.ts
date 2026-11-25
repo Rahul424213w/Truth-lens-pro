@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { addHistory } from "@/lib/storage";
+import { getErrorMessage } from "@/lib/utils";
 
 export async function POST(req: NextRequest) {
   try {
@@ -66,7 +67,7 @@ export async function POST(req: NextRequest) {
     });
 
     return NextResponse.json({ success: true, data: { ...data, _id: saved._id } });
-  } catch (err: any) {
-    return NextResponse.json({ success: false, error: err.message || "Image analysis failed" }, { status: 500 });
+  } catch (err: unknown) {
+    return NextResponse.json({ success: false, error: getErrorMessage(err, "Image analysis failed") }, { status: 500 });
   }
 }

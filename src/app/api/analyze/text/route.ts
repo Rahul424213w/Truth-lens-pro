@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { callGroq, parseJSON, strArray, correctScore } from "@/lib/groq";
 import { addHistory } from "@/lib/storage";
+import { getErrorMessage } from "@/lib/utils";
 
 export async function POST(req: NextRequest) {
   try {
@@ -117,9 +118,9 @@ Reply with ONE valid JSON object only (strictly valid JSON, no markdown code fen
       data: { ...data, _id: saved._id },
       model: result.model,
     });
-  } catch (err: any) {
+  } catch (err: unknown) {
     return NextResponse.json(
-      { success: false, error: err.message || "Text analysis failed" },
+      { success: false, error: getErrorMessage(err, "Text analysis failed") },
       { status: 500 }
     );
   }

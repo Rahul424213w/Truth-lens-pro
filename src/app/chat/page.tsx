@@ -447,6 +447,8 @@ export default function ChatPage() {
                         )}
                       >
                         {message.attachment?.type === "image" && (
+                          /* Attachment data URLs are already local and cannot be optimized by next/image. */
+                          /* eslint-disable-next-line @next/next/no-img-element */
                           <img
                             src={message.attachment.data}
                             alt="Attached claim"
@@ -546,6 +548,8 @@ export default function ChatPage() {
             {imagePreview && (
               <div className="mb-2 flex items-center justify-between gap-3 rounded-xl border border-slate-800 bg-slate-900/80 p-2">
                 <div className="flex min-w-0 items-center gap-2.5">
+                  {/* Local preview data URL; next/image adds no value here. */}
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
                     src={imagePreview.data}
                     alt="Image preview"

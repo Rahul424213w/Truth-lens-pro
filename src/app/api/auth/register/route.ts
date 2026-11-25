@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { getErrorMessage } from "@/lib/utils";
 
 export async function POST(req: NextRequest) {
   try {
@@ -17,7 +18,7 @@ export async function POST(req: NextRequest) {
       token: "demo-jwt-token-" + Date.now(),
       user,
     });
-  } catch (e: any) {
-    return NextResponse.json({ success: false, error: e.message }, { status: 500 });
+  } catch (e: unknown) {
+    return NextResponse.json({ success: false, error: getErrorMessage(e, "Registration failed") }, { status: 500 });
   }
 }

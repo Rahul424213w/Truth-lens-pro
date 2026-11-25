@@ -19,7 +19,7 @@ export interface AnalysisRecord {
   manipulationSigns?: string[];
   authenticitySignals?: string[];
   aiGenerationIndicators?: string[];
-  full_result?: any;
+  full_result?: Record<string, unknown>;
   createdAt: string;
 }
 
@@ -33,7 +33,7 @@ export interface ChatMessage {
     data: string;
     name?: string;
   };
-  analysisData?: any;
+  analysisData?: Record<string, unknown>;
   intent?: "NEW_FACT_CHECK" | "FOLLOW_UP" | "GENERAL_QUERY";
   engine?: string;
   suggestedFollowUps?: string[];

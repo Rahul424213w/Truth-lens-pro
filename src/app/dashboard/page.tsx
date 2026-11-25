@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
+import type { LucideIcon } from "lucide-react";
 import {
   ShieldCheck,
   Search,
@@ -32,11 +33,7 @@ import {
   Check,
   Menu,
   X,
-  Sliders,
-  Send,
-  HelpCircle,
   Flame,
-  Radio,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -117,7 +114,7 @@ interface AnalysisData {
 
 const CATEGORY_MAP: Record<
   string,
-  { label: string; color: string; bg: string; border: string; glow: string; icon: any }
+  { label: string; color: string; bg: string; border: string; glow: string; icon: LucideIcon }
 > = {
   real: {
     label: "Credible & Verified",
@@ -196,6 +193,22 @@ const SAMPLE_PRESETS = [
   },
 ];
 
+interface TrendingItem {
+  claim: string;
+  category: string;
+  credibilityScore: number;
+  verdict: string;
+  shares: string;
+  source: string;
+}
+
+interface StatsData {
+  totalAnalyses: number;
+  averageCredibilityScore: number;
+  byType: Array<{ type: string; count: number }>;
+  byCategory: Array<{ category: string; count: number }>;
+}
+
 export default function DashboardPage() {
   const [activeTab, setActiveTab] = useState<string>("text");
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -216,8 +229,8 @@ export default function DashboardPage() {
   // Data
   const [results, setResults] = useState<AnalysisData | null>(null);
   const [history, setHistory] = useState<AnalysisData[]>([]);
-  const [trending, setTrending] = useState<any[]>([]);
-  const [stats, setStats] = useState<any>(null);
+  const [trending, setTrending] = useState<TrendingItem[]>([]);
+  const [stats, setStats] = useState<StatsData | null>(null);
   const [historyFilter, setHistoryFilter] = useState("all");
 
   const showToast = (message: string, type: "success" | "error" | "info" = "info") => {
@@ -263,18 +276,42 @@ export default function DashboardPage() {
   };
 
   useEffect(() => {
-    fetchHistory();
-    fetchTrending();
-    fetchStats();
+    let cancelled = false;
+
+    const loadDashboard = async () => {
+      try {
+        const [historyRes, trendingRes, statsRes] = await Promise.all([
+          fetch("/api/history"),
+          fetch("/api/analyze/trending"),
+          fetch("/api/stats"),
+        ]);
+        const [historyData, trendingData, statsData] = await Promise.all([
+          historyRes.json(),
+          trendingRes.json(),
+          statsRes.json(),
+        ]);
+        if (cancelled) return;
+        if (historyData.success) setHistory(historyData.data);
+        if (trendingData.success) setTrending(trendingData.data);
+        if (statsData.success) setStats(statsData.data);
+      } catch {
+        // Dashboard widgets keep their empty states when the API is unreachable.
+      }
+    };
+
+    void loadDashboard();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
-  const handleAnalyze = async (type: string, input: any) => {
+  const handleAnalyze = async (type: string, input: string | string[] | null) => {
     setIsLoading(true);
     setResults(null);
 
     try {
       let endpoint = "/api/analyze/text";
-      let body: any = {};
+      let body: Record<string, unknown> = {};
 
       if (type === "text") {
         endpoint = "/api/analyze/text";
@@ -284,7 +321,7 @@ export default function DashboardPage() {
         body = { url: articleUrl, content: input };
       } else if (type === "compare") {
         endpoint = "/api/analyze/compare";
-        body = { sources: input.filter((s: string) => s.trim()) };
+        body = { sources: Array.isArray(input) ? input.filter((s) => s.trim()) : [] };
       } else if (type === "factcheck") {
         endpoint = "/api/factcheck";
         body = { claim: input };
@@ -740,6 +777,8 @@ export default function DashboardPage() {
                 <input ref={fileInputRef} type="file" accept="image/*" onChange={handleImageFile} className="hidden" />
                 {imagePreview ? (
                   <div className="relative max-w-sm">
+                    {/* Data URLs from local file uploads cannot be optimized by next/image. */}
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img src={imagePreview} alt="Preview" className="rounded-lg max-h-48 object-contain" />
                     <button
                       onClick={(e) => {
@@ -865,7 +904,7 @@ export default function DashboardPage() {
                         <span>Claimed Narrative</span>
                       </div>
                       <p className="text-xs text-rose-200/90 leading-relaxed font-medium">
-                        "{results.realityCheck.claimedAssertion}"
+                        &ldquo;{results.realityCheck.claimedAssertion}&rdquo;
                       </p>
                     </div>
                     <div className="p-4 rounded-xl bg-emerald-950/20 border border-emerald-500/30 space-y-1.5">
@@ -945,7 +984,7 @@ export default function DashboardPage() {
                       {results.extractedClaims.map((claimObj, idx) => (
                         <div key={idx} className="p-3 rounded-xl bg-[#090f20] border border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
                           <div className="space-y-0.5">
-                            <p className="text-xs font-semibold text-white">"{claimObj.claim}"</p>
+                            <p className="text-xs font-semibold text-white">&ldquo;{claimObj.claim}&rdquo;</p>
                             <p className="text-[11px] text-slate-400">{claimObj.note}</p>
                           </div>
                           <span
@@ -1006,7 +1045,7 @@ export default function DashboardPage() {
                       </button>
                     </div>
                     <div className="p-3 rounded-lg bg-[#070b14]/70 border border-purple-500/20 text-xs text-slate-200 leading-relaxed font-mono">
-                      "{results.debunkCopyScript}"
+                      &ldquo;{results.debunkCopyScript}&rdquo;
                     </div>
                     <p className="text-[10px] text-purple-300/70">
                       Tip: Paste this polite, fact-based rebuttal into family group chats, forum replies, or social feeds to defuse misinformation without confrontation.
@@ -1144,7 +1183,7 @@ export default function DashboardPage() {
                           rel="noopener noreferrer"
                           className="text-xs px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-blue-600/20 hover:border-blue-500/40 border border-slate-700 text-blue-300 flex items-center gap-1.5 transition-colors"
                         >
-                          <span>"{query}"</span>
+                          <span>&ldquo;{query}&rdquo;</span>
                           <ExternalLink className="w-3 h-3" />
                         </a>
                       ))}
@@ -1290,7 +1329,7 @@ export default function DashboardPage() {
                 <div className="p-4 rounded-xl bg-slate-900/70 border border-slate-800 space-y-3">
                   <span className="text-xs font-bold text-white uppercase font-mono block">Category Distribution</span>
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
-                    {stats.byCategory.map((c: any) => {
+                    {stats.byCategory.map((c) => {
                       const cat = CATEGORY_MAP[c.category] || CATEGORY_MAP.unclear;
                       return (
                         <div key={c.category} className={cn("p-3 rounded-lg border text-center", cat.bg, cat.border)}>
