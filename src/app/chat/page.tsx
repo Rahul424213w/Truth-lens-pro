@@ -1,171 +1,59 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { motion, AnimatePresence } from "framer-motion";
+import { AnimatePresence, motion } from "framer-motion";
 import {
-  Send,
-  Bot,
-  User,
-  Sparkles,
-  Plus,
-  Trash2,
-  Paperclip,
-  Image as ImageIcon,
-  ExternalLink,
-  ChevronDown,
-  ChevronUp,
-  Copy,
-  Check,
-  RefreshCw,
   AlertTriangle,
+  ArrowUp,
+  ArrowUpRight,
+  Check,
   CheckCircle2,
-  XCircle,
-  ShieldCheck,
-  ArrowRight,
-  ArrowLeft,
-  Menu,
-  X,
-  Info,
-  MessageSquare,
+  Copy,
+  ExternalLink,
+  Image as ImageIcon,
   LayoutDashboard,
   Loader2,
-  FileText,
-  Search,
-  Globe,
-  Radio,
-  Cpu,
+  Menu,
+  Plus,
+  ShieldCheck,
+  Sparkles,
+  User,
+  X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { ChatSidebar } from "@/components/chat/chat-sidebar";
+import { FormattedText } from "@/components/chat/formatted-text";
+import { VerdictReport } from "@/components/chat/verdict-report";
+import type { ChatConversation, ChatMessage } from "@/components/chat/types";
 
-interface ExtractedClaim {
-  claim: string;
-  verdict: string;
-  note: string;
-}
-
-interface AnalysisData {
-  credibilityScore: number;
-  category: "real" | "fake" | "misleading" | "clickbait" | "satire" | "unclear" | string;
-  verdict: string;
-  analysis: string;
-  consensusFact?: string;
-  realityCheck?: {
-    claimedAssertion: string;
-    factualReality: string;
-  };
-  extractedClaims?: ExtractedClaim[];
-  riskAssessment?: {
-    riskLevel?: string;
-    harmCategory?: string;
-    whyItSpreads?: string;
-  };
-  originAndSpread?: {
-    originContext?: string;
-    spreadPattern?: string;
-  };
-  authoritativeSources?: string[];
-  redFlags?: string[];
-  positiveSignals?: string[];
-  debunkCopyScript?: string;
-  verificationSteps?: string[];
-  factCheckQueries?: string[];
-}
-
-interface ChatMessage {
-  id: string;
-  role: "user" | "assistant" | "system";
-  content: string;
-  createdAt: string;
-  attachment?: {
-    type: "image" | "url";
-    data: string;
-    name?: string;
-  };
-  analysisData?: AnalysisData;
-  intent?: "NEW_FACT_CHECK" | "FOLLOW_UP" | "GENERAL_QUERY";
-  engine?: string;
-  suggestedFollowUps?: string[];
-}
-
-interface ChatConversation {
-  id: string;
-  title: string;
-  createdAt: string;
-  updatedAt: string;
-  messages: ChatMessage[];
-}
-
-const CATEGORY_MAP: Record<
-  string,
-  { label: string; color: string; bg: string; border: string; icon: any }
-> = {
-  real: {
-    label: "Credible & Verified",
-    color: "text-emerald-400",
-    bg: "bg-emerald-500/10",
-    border: "border-emerald-500/30",
-    icon: CheckCircle2,
-  },
-  fake: {
-    label: "False & Fabricated",
-    color: "text-rose-400",
-    bg: "bg-rose-500/10",
-    border: "border-rose-500/30",
-    icon: XCircle,
-  },
-  misleading: {
-    label: "Misleading Context",
-    color: "text-amber-400",
-    bg: "bg-amber-500/10",
-    border: "border-amber-500/30",
-    icon: AlertTriangle,
-  },
-  clickbait: {
-    label: "Sensational Clickbait",
-    color: "text-yellow-400",
-    bg: "bg-yellow-500/10",
-    border: "border-yellow-500/30",
-    icon: AlertTriangle,
-  },
-  satire: {
-    label: "Satire & Parody",
-    color: "text-purple-400",
-    bg: "bg-purple-500/10",
-    border: "border-purple-500/30",
-    icon: Sparkles,
-  },
-  unclear: {
-    label: "Unverified Claim",
-    color: "text-slate-400",
-    bg: "bg-slate-500/10",
-    border: "border-slate-500/30",
-    icon: Info,
-  },
-};
-
-const STARTER_PROMPTS = [
+const STARTERS = [
   {
-    title: "Check Miracle Health Cure",
-    prompt: "Is it true that drinking 3 cups of coffee daily completely cures cancer and replaces chemotherapy?",
-    category: "Health Misinformation",
+    label: "Coffee cures cancer?",
+    prompt:
+      "Is it true that drinking 3 cups of coffee daily completely cures cancer and replaces chemotherapy?",
   },
   {
-    title: "Verify Space Anomaly",
-    prompt: "Did NASA Cassini probe discover a secret alien megastructure hidden inside Saturn's B-ring?",
-    category: "Conspiracy Check",
+    label: "Alien megastructure on Saturn?",
+    prompt:
+      "Did NASA's Cassini probe discover a secret alien megastructure inside Saturn's B-ring?",
   },
   {
-    title: "Government Free Scheme",
-    prompt: "A WhatsApp message says the government is distributing free laptops to all college students via a portal link. Is this real?",
-    category: "Phishing / Scam",
+    label: "Free laptops on WhatsApp?",
+    prompt:
+      "A WhatsApp message says the government is distributing free laptops to all college students via a portal link. Is this real?",
   },
   {
-    title: "How to Spot Deepfakes",
-    prompt: "What visual cues and forensic signs should I look for to identify AI-generated video deepfakes?",
-    category: "Media Literacy",
+    label: "How to spot a deepfake",
+    prompt:
+      "What visual cues and forensic signs should I look for to identify AI-generated video deepfakes?",
   },
 ];
+
+type Toast = { message: string; type: "success" | "error" | "info" };
+
+const createId = (prefix: string) =>
+  `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
 
 export default function ChatPage() {
   const [conversations, setConversations] = useState<ChatConversation[]>([]);
@@ -177,81 +65,83 @@ export default function ChatPage() {
   const [expandedReports, setExpandedReports] = useState<Record<string, boolean>>({});
   const [copiedDebunkId, setCopiedDebunkId] = useState<string | null>(null);
   const [copiedMsgId, setCopiedMsgId] = useState<string | null>(null);
-  const [toast, setToast] = useState<{ message: string; type: "success" | "error" | "info" } | null>(null);
+  const [toast, setToast] = useState<Toast | null>(null);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const showToast = (message: string, type: "success" | "error" | "info" = "info") => {
+  const activeConversation =
+    conversations.find((conversation) => conversation.id === currentId) ?? null;
+
+  const showToast = useCallback((message: string, type: Toast["type"] = "info") => {
+    if (toastTimer.current) clearTimeout(toastTimer.current);
     setToast({ message, type });
-    setTimeout(() => setToast(null), 3000);
-  };
-
-  const activeConversation = conversations.find((c) => c.id === currentId) || null;
-
-  // Auto-scroll
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  };
+    toastTimer.current = setTimeout(() => setToast(null), 2600);
+  }, []);
 
   useEffect(() => {
-    scrollToBottom();
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [activeConversation?.messages, isLoading]);
 
-  // Fetch conversations on load
-  const loadConversations = async () => {
-    try {
-      const res = await fetch("/api/chat/conversations");
-      const data = await res.json();
-      if (data.success && Array.isArray(data.data)) {
-        setConversations(data.data);
-        if (data.data.length > 0 && !currentId) {
-          setCurrentId(data.data[0].id);
-        }
-      }
-    } catch {
-      showToast("Failed to load chat history", "error");
-    }
-  };
-
   useEffect(() => {
-    loadConversations();
-  }, []);
+    let active = true;
+
+    const load = async () => {
+      try {
+        const res = await fetch("/api/chat/conversations");
+        const data = await res.json();
+        if (!active) return;
+        if (data.success && Array.isArray(data.data)) {
+          setConversations(data.data);
+          // Always open a fresh chat; previous conversations stay in the sidebar.
+          setCurrentId(null);
+        }
+      } catch {
+        if (active) showToast("Couldn't load history", "error");
+      }
+    };
+
+    void load();
+    return () => {
+      active = false;
+      if (toastTimer.current) clearTimeout(toastTimer.current);
+    };
+  }, [showToast]);
 
   const createNewChat = async () => {
     try {
       const res = await fetch("/api/chat/conversations", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title: "New Fact-Check Session" }),
+        body: JSON.stringify({ title: "New check" }),
       });
       const data = await res.json();
       if (data.success && data.data) {
-        setConversations((prev) => [data.data, ...prev]);
+        setConversations((previous) => [data.data, ...previous]);
         setCurrentId(data.data.id);
         setImagePreview(null);
         setInputMessage("");
         setSidebarOpen(false);
-        if (textareaRef.current) textareaRef.current.focus();
+        textareaRef.current?.focus();
       }
     } catch {
-      showToast("Could not create new session", "error");
+      showToast("Couldn't start a new check", "error");
     }
   };
 
-  const deleteChat = async (id: string, e: React.MouseEvent) => {
-    e.stopPropagation();
+  const deleteChat = async (id: string) => {
     try {
       await fetch(`/api/chat/conversations?id=${id}`, { method: "DELETE" });
-      const remaining = conversations.filter((c) => c.id !== id);
+      const remaining = conversations.filter((conversation) => conversation.id !== id);
       setConversations(remaining);
       if (currentId === id) {
         setCurrentId(remaining.length > 0 ? remaining[0].id : null);
       }
-      showToast("Conversation deleted", "info");
+      showToast("Deleted");
     } catch {
-      showToast("Failed to delete chat", "error");
+      showToast("Couldn't delete chat", "error");
     }
   };
 
@@ -259,44 +149,57 @@ export default function ChatPage() {
     const text = (textToSend ?? inputMessage).trim();
     if ((!text && !imagePreview) || isLoading) return;
 
-    let convId = currentId;
-    // If no active conversation, create one first
-    if (!convId) {
-      const newConv: ChatConversation = {
-        id: `conv-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
-        title: text.slice(0, 40) + "...",
+    let conversationId = currentId;
+    if (!conversationId) {
+      const newConversation: ChatConversation = {
+        id: createId("conv"),
+        title: text.slice(0, 40) || "Image check",
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
         messages: [],
       };
-      setConversations((prev) => [newConv, ...prev]);
-      setCurrentId(newConv.id);
-      convId = newConv.id;
+      setConversations((previous) => [newConversation, ...previous]);
+      setCurrentId(newConversation.id);
+      conversationId = newConversation.id;
     }
 
     const userMessage: ChatMessage = {
-      id: `temp-user-${Date.now()}`,
+      id: createId("temp-user"),
       role: "user",
-      content: text || (imagePreview ? "Analyze this uploaded image" : ""),
+      content: text || (imagePreview ? "Check this image" : ""),
       createdAt: new Date().toISOString(),
-      ...(imagePreview ? { attachment: { type: "image", data: imagePreview.data, name: imagePreview.name } } : {}),
+      ...(imagePreview
+        ? {
+            attachment: {
+              type: "image" as const,
+              data: imagePreview.data,
+              name: imagePreview.name,
+            },
+          }
+        : {}),
     };
 
-    // Optimistically update conversation
-    setConversations((prev) =>
-      prev.map((c) =>
-        c.id === convId
+    setConversations((previous) =>
+      previous.map((conversation) =>
+        conversation.id === conversationId
           ? {
-              ...c,
-              title: c.messages.length === 0 ? text.slice(0, 45) : c.title,
-              messages: [...c.messages, userMessage],
+              ...conversation,
+              title:
+                conversation.messages.length === 0
+                  ? text.slice(0, 45) || "Image check"
+                  : conversation.title,
+              messages: [...conversation.messages, userMessage],
             }
-          : c
+          : conversation
       )
     );
 
     const attachmentPayload = imagePreview
-      ? { type: "image" as const, data: imagePreview.data, name: imagePreview.name }
+      ? {
+          type: "image" as const,
+          data: imagePreview.data,
+          name: imagePreview.name,
+        }
       : undefined;
 
     setInputMessage("");
@@ -308,7 +211,7 @@ export default function ChatPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          conversationId: convId,
+          conversationId,
           message: text,
           attachment: attachmentPayload,
         }),
@@ -316,613 +219,297 @@ export default function ChatPage() {
 
       const data = await res.json();
       if (!data.success) {
-        throw new Error(data.error || "Server processing failed");
+        throw new Error(data.error || "Request failed");
       }
 
-      // Replace with confirmed messages from backend
-      setConversations((prev) =>
-        prev.map((c) => {
-          if (c.id === convId) {
-            // Replace optimistic user message with confirmed and append assistant message
-            const filtered = c.messages.filter((m) => m.id !== userMessage.id);
-            return {
-              ...c,
-              title: c.title === "New Fact-Check Session" ? text.slice(0, 45) : c.title,
-              messages: [...filtered, data.userMessage, data.assistantMessage],
-            };
-          }
-          return c;
+      setConversations((previous) =>
+        previous.map((conversation) => {
+          if (conversation.id !== conversationId) return conversation;
+          const confirmed = conversation.messages.filter(
+            (message) => message.id !== userMessage.id
+          );
+          return {
+            ...conversation,
+            title:
+              conversation.title === "New check"
+                ? text.slice(0, 45) || "Image check"
+                : conversation.title,
+            messages: [...confirmed, data.userMessage, data.assistantMessage],
+          };
         })
       );
-    } catch (err: any) {
-      showToast(err.message || "Failed to get AI response", "error");
-      // Add error notification assistant message
-      const errorMsg: ChatMessage = {
-        id: `err-${Date.now()}`,
-        role: "assistant",
-        content: `⚠️ Truth Lens encountered an error: ${err.message || "Network issue"}. Please try again or rephrase your claim.`,
-        createdAt: new Date().toISOString(),
-        engine: "Truth Lens Recovery Handler",
-      };
-      setConversations((prev) =>
-        prev.map((c) => (c.id === convId ? { ...c, messages: [...c.messages, errorMsg] } : c))
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Request failed";
+      showToast(message, "error");
+      setConversations((previous) =>
+        previous.map((conversation) =>
+          conversation.id === conversationId
+            ? {
+                ...conversation,
+                messages: [
+                  ...conversation.messages,
+                  {
+                    id: createId("err"),
+                    role: "assistant",
+                    content: "Couldn't complete that check. Try again.",
+                    createdAt: new Date().toISOString(),
+                  },
+                ],
+              }
+            : conversation
+        )
       );
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
+  const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
     if (!file) return;
 
     if (!file.type.startsWith("image/")) {
-      showToast("Please upload an image file (PNG, JPG, WebP)", "error");
+      showToast("Use an image file", "error");
       return;
     }
-
     if (file.size > 5 * 1024 * 1024) {
-      showToast("Image must be smaller than 5MB", "error");
+      showToast("Image too large (5MB max)", "error");
       return;
     }
 
     const reader = new FileReader();
-    reader.onload = (event) => {
+    reader.onload = (loadEvent) => {
       setImagePreview({
-        data: event.target?.result as string,
+        data: loadEvent.target?.result as string,
         name: file.name,
       });
-      showToast(`Attached: ${file.name}`, "success");
+      showToast("Image attached", "success");
     };
     reader.readAsDataURL(file);
-    e.target.value = "";
+    event.target.value = "";
   };
 
-  const toggleReport = (msgId: string) => {
-    setExpandedReports((prev) => ({ ...prev, [msgId]: !prev[msgId] }));
-  };
-
-  const copyDebunkScript = (text: string, msgId: string) => {
+  const copyMessageContent = (text: string, id: string) => {
     navigator.clipboard.writeText(text);
-    setCopiedDebunkId(msgId);
-    showToast("Debunk script copied to clipboard!", "success");
-    setTimeout(() => setCopiedDebunkId(null), 2500);
+    setCopiedMsgId(id);
+    showToast("Copied", "success");
+    setTimeout(() => setCopiedMsgId(null), 1800);
   };
 
-  const copyMessageContent = (text: string, msgId: string) => {
+  const copyDebunkScript = (text: string, id: string) => {
     navigator.clipboard.writeText(text);
-    setCopiedMsgId(msgId);
-    showToast("Message copied!", "success");
-    setTimeout(() => setCopiedMsgId(null), 2000);
+    setCopiedDebunkId(id);
+    showToast("Copied", "success");
+    setTimeout(() => setCopiedDebunkId(null), 1800);
   };
+
+  const isEmpty = !activeConversation || activeConversation.messages.length === 0;
 
   return (
-    <div className="flex h-screen w-full bg-[#070b14] text-slate-100 font-sans overflow-hidden">
-      {/* Toast Notification */}
+    <div className="relative flex h-dvh w-full overflow-hidden bg-[#070b14] text-slate-100 font-sans antialiased selection:bg-blue-600 selection:text-white">
+      <div aria-hidden="true" className="app-grid pointer-events-none fixed inset-0 z-0 opacity-[0.14]" />
+      <div aria-hidden="true" className="pointer-events-none fixed left-1/3 top-0 z-0 h-[350px] w-[600px] rounded-full bg-blue-600/8 blur-[140px]" />
+
       <AnimatePresence>
         {toast && (
           <motion.div
-            initial={{ opacity: 0, y: -20 }}
+            initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -20 }}
+            exit={{ opacity: 0, y: 20 }}
+            role="status"
             className={cn(
-              "fixed top-4 right-4 z-50 px-4 py-2.5 rounded-xl border text-xs font-semibold shadow-2xl flex items-center gap-2",
+              "fixed bottom-6 right-6 z-50 flex max-w-[calc(100%-2rem)] items-center gap-2.5 rounded-xl border bg-[#0e172a] px-4 py-3 text-xs font-semibold text-slate-100 shadow-2xl backdrop-blur-xl",
               toast.type === "success"
-                ? "bg-emerald-950/90 border-emerald-500/40 text-emerald-200"
+                ? "border-emerald-500/50"
                 : toast.type === "error"
-                ? "bg-rose-950/90 border-rose-500/40 text-rose-200"
-                : "bg-slate-900/90 border-slate-700 text-slate-200"
+                ? "border-rose-500/50"
+                : "border-blue-500/50"
             )}
           >
-            {toast.type === "success" && <CheckCircle2 className="w-4 h-4 text-emerald-400" />}
-            {toast.type === "error" && <AlertTriangle className="w-4 h-4 text-rose-400" />}
-            {toast.type === "info" && <Info className="w-4 h-4 text-blue-400" />}
-            <span>{toast.message}</span>
+            {toast.type === "success" && (
+              <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-400" />
+            )}
+            {toast.type === "error" && (
+              <AlertTriangle className="h-4 w-4 shrink-0 text-rose-400" />
+            )}
+            {toast.type === "info" && (
+              <Sparkles className="h-4 w-4 shrink-0 text-blue-400" />
+            )}
+            <span className="truncate">{toast.message}</span>
           </motion.div>
         )}
       </AnimatePresence>
 
-      {/* LEFT SIDEBAR (Desktop + Mobile Drawer) */}
-      <aside
-        className={cn(
-          "fixed inset-y-0 left-0 z-40 w-72 bg-[#090e1a] border-r border-slate-800/80 flex flex-col transition-transform duration-300 md:static md:translate-x-0",
-          sidebarOpen ? "translate-x-0" : "-translate-x-full"
-        )}
-      >
-        {/* Brand Header */}
-        <div className="p-4 border-b border-slate-800/80 flex items-center justify-between">
-          <Link href="/" className="flex items-center gap-2.5 group">
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-cyan-600 to-blue-600 flex items-center justify-center font-bold text-white shadow-lg shadow-cyan-900/40">
-              <ShieldCheck className="w-4 h-4" />
-            </div>
-            <div>
-              <span className="font-bold text-sm tracking-wide text-white group-hover:text-cyan-400 transition-colors">
-                Truth Lens
-              </span>
-              <span className="text-[10px] text-cyan-400 font-mono block -mt-0.5">AI Fact-Checking</span>
-            </div>
-          </Link>
-          <button
-            onClick={() => setSidebarOpen(false)}
-            className="md:hidden p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800"
-          >
-            <X className="w-4 h-4" />
-          </button>
-        </div>
+      <ChatSidebar
+        conversations={conversations}
+        currentId={currentId}
+        open={sidebarOpen}
+        onClose={() => setSidebarOpen(false)}
+        onNewChat={createNewChat}
+        onSelect={(id) => {
+          setCurrentId(id);
+          setSidebarOpen(false);
+        }}
+        onDelete={deleteChat}
+      />
 
-        {/* Action Buttons */}
-        <div className="p-3 space-y-2 border-b border-slate-800/60">
+      <main className="relative z-10 flex min-w-0 flex-1 flex-col">
+        <header className="flex h-14 shrink-0 items-center gap-3 border-b border-slate-800/80 bg-[#070b14]/90 px-3 backdrop-blur-xl sm:px-4">
           <button
-            onClick={createNewChat}
-            className="w-full py-2.5 px-3 rounded-xl bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-500 hover:to-cyan-500 text-white font-semibold text-xs flex items-center justify-center gap-2 shadow-lg shadow-blue-900/30 transition-all active:scale-[0.98]"
+            type="button"
+            onClick={() => setSidebarOpen(true)}
+            aria-label="Open menu"
+            className="rounded-lg p-2 text-slate-400 hover:bg-slate-800/60 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 md:hidden"
           >
-            <Plus className="w-4 h-4" />
-            <span>New Fact-Check</span>
+            <Menu className="h-5 w-5" />
           </button>
+
+          <h1 className="min-w-0 flex-1 truncate text-sm font-bold tracking-tight text-white">
+            {activeConversation?.title ?? "New check"}
+          </h1>
 
           <Link
             href="/dashboard"
-            className="w-full py-2 px-3 rounded-xl bg-slate-800/70 hover:bg-slate-800 border border-slate-700/60 text-slate-300 hover:text-white font-medium text-xs flex items-center justify-between transition-colors"
+            aria-label="Dashboard"
+            className="rounded-lg border border-slate-700/60 bg-slate-800/60 p-2 text-slate-300 transition-colors hover:bg-slate-800 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
           >
-            <span className="flex items-center gap-2">
-              <LayoutDashboard className="w-3.5 h-3.5 text-cyan-400" />
-              <span>Full Analytics Dashboard</span>
-            </span>
-            <ArrowRight className="w-3 h-3 text-slate-400" />
+            <LayoutDashboard className="h-4 w-4" />
           </Link>
-        </div>
-
-        {/* History / Sessions List */}
-        <div className="flex-1 overflow-y-auto p-2 space-y-1">
-          <div className="px-2 py-1 text-[11px] font-mono uppercase text-slate-400 tracking-wider">
-            Conversations ({conversations.length})
-          </div>
-
-          {conversations.length === 0 ? (
-            <div className="p-4 text-center text-xs text-slate-400 space-y-1">
-              <MessageSquare className="w-6 h-6 mx-auto text-slate-400 opacity-60" />
-              <p>No previous conversations.</p>
-              <p className="text-[11px] text-slate-400">Click New Fact-Check to begin.</p>
-            </div>
-          ) : (
-            conversations.map((conv) => {
-              const isActive = conv.id === currentId;
-              return (
-                <div
-                  key={conv.id}
-                  onClick={() => {
-                    setCurrentId(conv.id);
-                    setSidebarOpen(false);
-                  }}
-                  className={cn(
-                    "group relative p-2.5 rounded-xl cursor-pointer text-xs transition-all flex items-center justify-between",
-                    isActive
-                      ? "bg-slate-800 text-white border border-slate-700 font-semibold"
-                      : "text-slate-400 hover:bg-slate-850 hover:text-slate-200"
-                  )}
-                >
-                  <div className="flex items-center gap-2 overflow-hidden pr-6">
-                    <MessageSquare className={cn("w-3.5 h-3.5 flex-shrink-0", isActive ? "text-cyan-400" : "text-slate-400")} />
-                    <span className="truncate">{conv.title}</span>
-                  </div>
-
-                  <button
-                    onClick={(e) => deleteChat(conv.id, e)}
-                    className="opacity-0 group-hover:opacity-100 p-1 hover:text-rose-400 text-slate-400 transition-opacity"
-                    title="Delete chat"
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                  </button>
-                </div>
-              );
-            })
-          )}
-        </div>
-
-        {/* Footer Meta */}
-        <div className="p-3 border-t border-slate-800/80 text-[11px] text-slate-400 space-y-1 font-mono">
-          <div className="flex items-center justify-between">
-            <span className="flex items-center gap-1.5">
-              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-              <span>Groq Intelligence</span>
-            </span>
-            <span className="text-slate-400">gpt-oss-120b</span>
-          </div>
-          <div className="text-[10px] text-slate-400 truncate">
-            Empirical consensus & forensic AI
-          </div>
-        </div>
-      </aside>
-
-      {/* BACKDROP FOR MOBILE SIDEBAR */}
-      {sidebarOpen && (
-        <div
-          onClick={() => setSidebarOpen(false)}
-          className="fixed inset-0 z-30 bg-black/60 backdrop-blur-sm md:hidden"
-        />
-      )}
-
-      {/* MAIN CHAT AREA */}
-      <main className="flex-1 flex flex-col h-full overflow-hidden bg-[#070b14]">
-        {/* Chat Top Bar */}
-        <header className="h-14 border-b border-slate-800/80 px-4 flex items-center justify-between bg-[#080d1a]/80 backdrop-blur-md z-10 flex-shrink-0">
-          <div className="flex items-center gap-3">
-            <button
-              onClick={() => setSidebarOpen(true)}
-              className="md:hidden p-2 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800"
-            >
-              <Menu className="w-5 h-5" />
-            </button>
-
-            <div>
-              <h2 className="text-sm font-bold text-white flex items-center gap-2">
-                <span>{activeConversation?.title || "Truth Lens Chat"}</span>
-                <span className="hidden sm:inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-cyan-500/10 border border-cyan-500/30 text-[10px] font-mono text-cyan-400 font-semibold">
-                  <Sparkles className="w-3 h-3" /> Conversational AI
-                </span>
-              </h2>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <Link
-              href="/dashboard"
-              className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs font-semibold text-slate-300 hover:text-white border border-slate-700 flex items-center gap-1.5 transition-colors"
-            >
-              <LayoutDashboard className="w-3.5 h-3.5 text-cyan-400" />
-              <span className="hidden sm:inline">Dashboard</span>
-            </Link>
-
-            <button
-              onClick={createNewChat}
-              className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700"
-              title="New Chat"
-            >
-              <Plus className="w-4 h-4" />
-            </button>
-          </div>
+          <button
+            type="button"
+            onClick={createNewChat}
+            aria-label="New check"
+            className="rounded-lg border border-slate-700/60 bg-slate-800/60 p-2 text-slate-300 transition-colors hover:bg-slate-800 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+          >
+            <Plus className="h-4 w-4" />
+          </button>
         </header>
 
-        {/* Scrollable Messages Area */}
-        <div className="flex-1 overflow-y-auto px-3 sm:px-6 py-6 space-y-6">
-          {!activeConversation || activeConversation.messages.length === 0 ? (
-            /* Empty State / Welcome Screen */
-            <div className="max-w-2xl mx-auto pt-6 pb-12 space-y-8">
-              <div className="text-center space-y-3">
-                <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-cyan-600 via-blue-600 to-indigo-600 flex items-center justify-center mx-auto shadow-xl shadow-cyan-900/30">
-                  <ShieldCheck className="w-8 h-8 text-white" />
-                </div>
-                <h1 className="text-2xl font-black text-white tracking-tight">
-                  Truth Lens Conversational AI
-                </h1>
-                <p className="text-xs sm:text-sm text-slate-400 max-w-lg mx-auto leading-relaxed">
-                  Verify viral claims, analyze suspicious news links, inspect images, and get ready-to-share polite debunk scripts for family chats.
-                </p>
-              </div>
+        <div className="min-h-0 flex-1 overflow-y-auto">
+          {isEmpty ? (
+            <div className="mx-auto flex w-full max-w-lg flex-col items-center px-4 py-12 text-center sm:py-16">
+              <span className="grid h-12 w-12 place-items-center rounded-xl border border-blue-400/30 bg-gradient-to-br from-blue-500 to-indigo-600 text-white shadow-md shadow-blue-500/20">
+                <ShieldCheck className="h-6 w-6" />
+              </span>
+              <h2 className="mt-5 text-3xl font-bold tracking-tight text-white sm:text-4xl">
+                Truth, at a glance.
+              </h2>
+              <p className="mt-3 max-w-sm text-sm leading-6 text-slate-400">
+                Paste a claim, a link, or drop a screenshot. Get a clear verdict.
+              </p>
 
-              {/* Starter Question Cards */}
-              <div className="space-y-2.5">
-                <span className="text-[11px] font-mono uppercase tracking-wider text-slate-400 block px-1">
-                  Try asking or testing:
-                </span>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  {STARTER_PROMPTS.map((item, idx) => (
-                    <button
-                      key={idx}
-                      onClick={() => handleSendMessage(item.prompt)}
-                      className="p-3.5 rounded-xl bg-slate-900/80 hover:bg-slate-850 border border-slate-800 hover:border-cyan-500/40 text-left transition-all group flex flex-col justify-between space-y-2 shadow-sm"
-                    >
-                      <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-slate-800 text-cyan-400 font-semibold self-start">
-                        {item.category}
-                      </span>
-                      <p className="text-xs font-semibold text-slate-200 group-hover:text-white leading-relaxed">
-                        "{item.prompt}"
-                      </p>
-                      <span className="text-[11px] text-slate-400 flex items-center gap-1 group-hover:text-cyan-400 pt-1">
-                        <span>Investigate claim</span>
-                        <ArrowRight className="w-3 h-3 group-hover:translate-x-0.5 transition-transform" />
-                      </span>
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <div className="p-4 rounded-xl bg-slate-900/50 border border-slate-800/80 flex items-start gap-3 text-xs text-slate-400">
-                <Info className="w-4 h-4 text-cyan-400 flex-shrink-0 mt-0.5" />
-                <p>
-                  <strong className="text-slate-300">Multi-turn Memory:</strong> Truth Lens remembers previous verdicts in this session. You can ask follow-ups like <em>"Why did you give this score?"</em>, <em>"Who started this rumor?"</em>, or <em>"Can you write a shorter debunk for WhatsApp?"</em>.
+              <div className="mt-9 w-full space-y-2 text-left">
+                <p className="px-1 font-mono text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                  Try one
                 </p>
+                {STARTERS.map((starter) => (
+                  <button
+                    key={starter.label}
+                    type="button"
+                    onClick={() => handleSendMessage(starter.prompt)}
+                    className="group flex w-full items-center justify-between gap-3 rounded-xl border border-slate-800 bg-slate-900/70 px-4 py-3.5 text-left text-sm font-medium text-slate-200 shadow-lg transition-all hover:border-blue-500/40 hover:bg-slate-800/60 hover:text-white hover:shadow-blue-900/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+                  >
+                    <span className="truncate">{starter.label}</span>
+                    <ArrowUpRight className="h-4 w-4 shrink-0 text-slate-500 transition-colors group-hover:text-blue-400" />
+                  </button>
+                ))}
               </div>
             </div>
           ) : (
-            /* Render Message History */
-            <div className="max-w-3xl mx-auto space-y-6">
-              {activeConversation.messages.map((msg) => {
-                const isUser = msg.role === "user";
-                const isReportOpen = !!expandedReports[msg.id];
-                const analysis = msg.analysisData;
+            <div className="mx-auto w-full max-w-2xl space-y-6 px-3 py-6 sm:px-4">
+              {activeConversation.messages.map((message) => {
+                const isUser = message.role === "user";
+                const analysis = message.analysisData;
 
                 return (
                   <div
-                    key={msg.id}
-                    className={cn(
-                      "flex gap-3 sm:gap-4",
-                      isUser ? "justify-end" : "justify-start"
-                    )}
+                    key={message.id}
+                    className={cn("flex gap-3", isUser ? "justify-end" : "justify-start")}
                   >
                     {!isUser && (
-                      <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-cyan-600 to-blue-600 flex items-center justify-center flex-shrink-0 text-white shadow-md shadow-cyan-900/40 mt-1">
-                        <ShieldCheck className="w-4 h-4" />
-                      </div>
+                      <span className="mt-0.5 grid h-7 w-7 shrink-0 place-items-center rounded-lg border border-blue-400/30 bg-gradient-to-br from-blue-500 to-indigo-600 text-white shadow-sm shadow-blue-500/20">
+                        <ShieldCheck className="h-4 w-4" />
+                      </span>
                     )}
 
                     <div
                       className={cn(
-                        "space-y-3 max-w-[88%] sm:max-w-[80%]",
-                        isUser ? "items-end" : "items-start"
+                        "flex min-w-0 max-w-[88%] flex-col gap-2 sm:max-w-[80%]",
+                        isUser && "items-end"
                       )}
                     >
-                      {/* Message Bubble */}
                       <div
                         className={cn(
-                          "p-4 rounded-2xl text-xs sm:text-sm leading-relaxed",
+                          "min-w-0 rounded-xl px-4 py-3 text-sm leading-6",
                           isUser
-                            ? "bg-gradient-to-br from-blue-600 to-cyan-600 text-white rounded-br-none shadow-md shadow-blue-900/20"
-                            : "bg-[#0c1222] border border-slate-800 text-slate-200 rounded-bl-none shadow-sm"
+                            ? "rounded-br-sm bg-blue-600 text-white shadow-sm shadow-blue-600/30"
+                            : "rounded-bl-sm border border-slate-800 bg-slate-900/70 text-slate-200 shadow-lg"
                         )}
                       >
-                        {/* If attachment */}
-                        {msg.attachment && (
-                          <div className="mb-3 p-2 rounded-lg bg-black/30 border border-white/10 space-y-1.5">
-                            {msg.attachment.type === "image" ? (
-                              <div>
-                                <img
-                                  src={msg.attachment.data}
-                                  alt="Attachment"
-                                  className="max-h-48 rounded object-cover border border-white/10"
-                                />
-                                <span className="text-[10px] text-slate-300 font-mono block mt-1">
-                                  Attachment: {msg.attachment.name || "Image file"}
-                                </span>
-                              </div>
-                            ) : (
-                              <div className="flex items-center gap-1.5 text-xs text-cyan-300">
-                                <ExternalLink className="w-3.5 h-3.5" />
-                                <span className="truncate">{msg.attachment.data}</span>
-                              </div>
-                            )}
-                          </div>
+                        {message.attachment?.type === "image" && (
+                          <img
+                            src={message.attachment.data}
+                            alt="Attached claim"
+                            className="mb-3 max-h-48 rounded-lg border border-slate-700/60 object-cover"
+                          />
                         )}
-
-                        {/* Text Content */}
-                        <div className="whitespace-pre-wrap">{msg.content}</div>
-
-                        {/* Engine Badge and Copy Tool for Assistant */}
-                        {!isUser && (
-                          <div className="mt-3 pt-2 border-t border-slate-800/80 flex items-center justify-between text-[11px] font-mono text-slate-400">
-                            <span className="flex items-center gap-1 text-slate-400">
-                              <Cpu className="w-3 h-3 text-cyan-400" />
-                              <span>{msg.engine || "Truth Lens Engine"}</span>
-                            </span>
-                            <button
-                              onClick={() => copyMessageContent(msg.content, msg.id)}
-                              className="hover:text-white flex items-center gap-1"
-                              title="Copy response"
-                            >
-                              {copiedMsgId === msg.id ? (
-                                <Check className="w-3 h-3 text-emerald-400" />
-                              ) : (
-                                <Copy className="w-3 h-3" />
-                              )}
-                              <span>{copiedMsgId === msg.id ? "Copied" : "Copy"}</span>
-                            </button>
+                        {message.attachment?.type === "url" && (
+                          <span className="mb-3 flex items-center gap-1.5 text-xs text-blue-300">
+                            <ExternalLink className="h-3.5 w-3.5 shrink-0" />
+                            <span className="truncate">{message.attachment.data}</span>
+                          </span>
+                        )}
+                        {isUser ? (
+                          <div className="whitespace-pre-wrap break-words">
+                            {message.content}
                           </div>
+                        ) : (
+                          <FormattedText text={message.content} />
                         )}
                       </div>
 
-                      {/* Expandable Forensic Report Card if analysisData exists */}
-                      {analysis && (
-                        <div className="w-full rounded-2xl bg-[#080d1c] border border-slate-800 overflow-hidden shadow-lg">
-                          {/* Card Header Preview Button */}
-                          <button
-                            onClick={() => toggleReport(msg.id)}
-                            className="w-full p-3.5 text-left flex items-center justify-between hover:bg-slate-850/60 transition-colors"
-                          >
-                            <div className="flex items-center gap-3">
-                              {(() => {
-                                const cat = CATEGORY_MAP[analysis.category] || CATEGORY_MAP.unclear;
-                                const Icon = cat.icon;
-                                return (
-                                  <div
-                                    className={cn(
-                                      "px-2.5 py-1 rounded-lg border text-[11px] font-bold font-mono uppercase flex items-center gap-1.5",
-                                      cat.bg,
-                                      cat.color,
-                                      cat.border
-                                    )}
-                                  >
-                                    <Icon className="w-3.5 h-3.5" />
-                                    <span>{cat.label}</span>
-                                  </div>
-                                );
-                              })()}
-
-                              <div className="space-y-0.5">
-                                <div className="text-xs font-bold text-white flex items-center gap-2">
-                                  <span>{analysis.verdict}</span>
-                                  <span className="text-[11px] font-mono text-slate-400">
-                                    Score: {analysis.credibilityScore}/100
-                                  </span>
-                                </div>
-                                <span className="text-[11px] text-cyan-400 block">
-                                  {isReportOpen ? "Click to collapse report" : "Click to view full forensic dossier"}
-                                </span>
-                              </div>
-                            </div>
-
-                            <div className="p-1 rounded-lg bg-slate-800 text-slate-300">
-                              {isReportOpen ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-                            </div>
-                          </button>
-
-                          {/* Expanded Full Structured Forensic Report */}
-                          <AnimatePresence>
-                            {isReportOpen && (
-                              <motion.div
-                                initial={{ height: 0, opacity: 0 }}
-                                animate={{ height: "auto", opacity: 1 }}
-                                exit={{ height: 0, opacity: 0 }}
-                                className="border-t border-slate-800 p-4 space-y-4 text-xs bg-[#090f20]"
-                              >
-                                {/* Consensus Fact */}
-                                {analysis.consensusFact && (
-                                  <div className="p-3 rounded-xl bg-blue-500/10 border border-blue-500/25 space-y-1">
-                                    <div className="text-[10px] font-bold text-blue-400 uppercase font-mono flex items-center gap-1.5">
-                                      <ShieldCheck className="w-3.5 h-3.5" />
-                                      <span>Verified Institutional Consensus</span>
-                                    </div>
-                                    <p className="text-xs text-slate-200 leading-relaxed">{analysis.consensusFact}</p>
-                                  </div>
-                                )}
-
-                                {/* Side-by-side Reality Check */}
-                                {analysis.realityCheck && (
-                                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                    <div className="p-3 rounded-xl bg-rose-950/20 border border-rose-500/30 space-y-1">
-                                      <span className="text-[10px] font-mono text-rose-400 font-bold uppercase flex items-center gap-1">
-                                        <XCircle className="w-3 h-3" /> Claimed Narrative
-                                      </span>
-                                      <p className="text-xs text-rose-200/90 font-medium">
-                                        "{analysis.realityCheck.claimedAssertion}"
-                                      </p>
-                                    </div>
-                                    <div className="p-3 rounded-xl bg-emerald-950/20 border border-emerald-500/30 space-y-1">
-                                      <span className="text-[10px] font-mono text-emerald-400 font-bold uppercase flex items-center gap-1">
-                                        <CheckCircle2 className="w-3 h-3" /> Factual Reality
-                                      </span>
-                                      <p className="text-xs text-emerald-200/90 font-medium">
-                                        {analysis.realityCheck.factualReality}
-                                      </p>
-                                    </div>
-                                  </div>
-                                )}
-
-                                {/* Threat Intelligence */}
-                                {(analysis.riskAssessment || analysis.originAndSpread) && (
-                                  <div className="p-3 rounded-xl bg-slate-900 border border-slate-800 space-y-2">
-                                    <div className="flex items-center justify-between">
-                                      <span className="text-[10px] font-mono text-amber-400 uppercase font-bold flex items-center gap-1">
-                                        <AlertTriangle className="w-3 h-3" /> Threat & Spread Vectors
-                                      </span>
-                                      {analysis.riskAssessment?.riskLevel && (
-                                        <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-slate-800 text-amber-300 font-bold">
-                                          {analysis.riskAssessment.riskLevel}
-                                        </span>
-                                      )}
-                                    </div>
-                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[11px]">
-                                      {analysis.riskAssessment?.harmCategory && (
-                                        <div>
-                                          <span className="text-slate-400 font-mono">Domain: </span>
-                                          <span className="text-slate-200">{analysis.riskAssessment.harmCategory}</span>
-                                        </div>
-                                      )}
-                                      {analysis.riskAssessment?.whyItSpreads && (
-                                        <div>
-                                          <span className="text-slate-400 font-mono">Psychological Hook: </span>
-                                          <span className="text-slate-200">{analysis.riskAssessment.whyItSpreads}</span>
-                                        </div>
-                                      )}
-                                    </div>
-                                  </div>
-                                )}
-
-                                {/* Extracted Claims Breakdown */}
-                                {analysis.extractedClaims && analysis.extractedClaims.length > 0 && (
-                                  <div className="space-y-1.5">
-                                    <span className="text-[10px] font-mono text-slate-400 uppercase font-bold flex items-center gap-1">
-                                      <FileText className="w-3 h-3 text-cyan-400" /> Extracted Atomic Claims
-                                    </span>
-                                    <div className="space-y-1.5">
-                                      {analysis.extractedClaims.map((claimObj, idx) => (
-                                        <div
-                                          key={idx}
-                                          className="p-2.5 rounded-lg bg-slate-900/80 border border-slate-800 flex items-center justify-between gap-2"
-                                        >
-                                          <div className="space-y-0.5">
-                                            <p className="font-semibold text-white">"{claimObj.claim}"</p>
-                                            <p className="text-[11px] text-slate-400">{claimObj.note}</p>
-                                          </div>
-                                          <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-slate-800 text-cyan-300 border border-slate-700 font-bold flex-shrink-0">
-                                            {claimObj.verdict}
-                                          </span>
-                                        </div>
-                                      ))}
-                                    </div>
-                                  </div>
-                                )}
-
-                                {/* 1-Click Debunk Script */}
-                                {analysis.debunkCopyScript && (
-                                  <div className="p-3 rounded-xl bg-purple-500/10 border border-purple-500/25 space-y-2">
-                                    <div className="flex items-center justify-between">
-                                      <span className="text-[10px] font-mono text-purple-300 uppercase font-bold flex items-center gap-1">
-                                        <Sparkles className="w-3 h-3 text-purple-400" /> 1-Click WhatsApp / Social Debunk
-                                      </span>
-                                      <button
-                                        onClick={() => copyDebunkScript(analysis.debunkCopyScript!, msg.id)}
-                                        className="px-2 py-1 rounded bg-purple-600/30 hover:bg-purple-600/50 text-[11px] font-semibold text-purple-200 border border-purple-500/40 flex items-center gap-1"
-                                      >
-                                        {copiedDebunkId === msg.id ? (
-                                          <Check className="w-3 h-3 text-emerald-400" />
-                                        ) : (
-                                          <Copy className="w-3 h-3" />
-                                        )}
-                                        <span>{copiedDebunkId === msg.id ? "Copied!" : "Copy Script"}</span>
-                                      </button>
-                                    </div>
-                                    <div className="p-2 rounded bg-black/40 text-slate-200 font-mono text-[11px] leading-relaxed">
-                                      "{analysis.debunkCopyScript}"
-                                    </div>
-                                  </div>
-                                )}
-
-                                {/* Authoritative Sources */}
-                                {analysis.authoritativeSources && analysis.authoritativeSources.length > 0 && (
-                                  <div className="space-y-1">
-                                    <span className="text-[10px] font-mono text-slate-400 uppercase font-bold flex items-center gap-1">
-                                      <ShieldCheck className="w-3 h-3 text-emerald-400" /> Accredited Authorities Cited
-                                    </span>
-                                    <div className="flex flex-wrap gap-1.5 pt-1">
-                                      {analysis.authoritativeSources.map((s, idx) => (
-                                        <span
-                                          key={idx}
-                                          className="px-2 py-0.5 rounded bg-blue-500/10 border border-blue-500/25 text-blue-300 text-[11px]"
-                                        >
-                                          • {s}
-                                        </span>
-                                      ))}
-                                    </div>
-                                  </div>
-                                )}
-                              </motion.div>
-                            )}
-                          </AnimatePresence>
-                        </div>
+                      {!isUser && (
+                        <button
+                          type="button"
+                          onClick={() => copyMessageContent(message.content, message.id)}
+                          aria-label="Copy response"
+                          className="flex w-fit items-center gap-1.5 rounded-md px-1.5 py-1 text-[11px] text-slate-400 transition-colors hover:bg-slate-800/60 hover:text-blue-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+                        >
+                          {copiedMsgId === message.id ? (
+                            <Check className="h-3 w-3 text-emerald-400" />
+                          ) : (
+                            <Copy className="h-3 w-3" />
+                          )}
+                          {copiedMsgId === message.id ? "Copied" : "Copy"}
+                        </button>
                       )}
 
-                      {/* Suggested Follow-up Chips */}
-                      {msg.suggestedFollowUps && msg.suggestedFollowUps.length > 0 && (
-                        <div className="flex flex-wrap gap-1.5 pt-1">
-                          {msg.suggestedFollowUps.map((chip, idx) => (
+                      {analysis && (
+                        <VerdictReport
+                          analysis={analysis}
+                          isOpen={!!expandedReports[message.id]}
+                          onToggle={() =>
+                            setExpandedReports((previous) => ({
+                              ...previous,
+                              [message.id]: !previous[message.id],
+                            }))
+                          }
+                          copied={copiedDebunkId === message.id}
+                          onCopyDebunk={(text) => copyDebunkScript(text, message.id)}
+                        />
+                      )}
+
+                      {message.suggestedFollowUps && message.suggestedFollowUps.length > 0 && (
+                        <div className="flex flex-wrap gap-1.5">
+                          {message.suggestedFollowUps.map((followUp, index) => (
                             <button
-                              key={idx}
-                              onClick={() => handleSendMessage(chip)}
+                              key={index}
+                              type="button"
+                              onClick={() => handleSendMessage(followUp)}
                               disabled={isLoading}
-                              className="px-3 py-1.5 rounded-full bg-slate-900/90 hover:bg-cyan-950/40 border border-slate-800 hover:border-cyan-500/40 text-slate-300 hover:text-cyan-200 text-[11px] font-medium flex items-center gap-1.5 transition-colors text-left"
+                              className="rounded-full border border-slate-800 bg-slate-900/70 px-3 py-1.5 text-[11px] text-slate-400 transition-colors hover:border-blue-500/40 hover:bg-blue-500/10 hover:text-blue-300 disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
                             >
-                              <Sparkles className="w-3 h-3 text-cyan-400 flex-shrink-0" />
-                              <span>{chip}</span>
+                              {followUp}
                             </button>
                           ))}
                         </div>
@@ -930,24 +517,22 @@ export default function ChatPage() {
                     </div>
 
                     {isUser && (
-                      <div className="w-8 h-8 rounded-xl bg-slate-800 flex items-center justify-center flex-shrink-0 text-slate-300 mt-1">
-                        <User className="w-4 h-4" />
-                      </div>
+                      <span className="mt-0.5 grid h-7 w-7 shrink-0 place-items-center rounded-full bg-slate-800 text-slate-400">
+                        <User className="h-3.5 w-3.5" />
+                      </span>
                     )}
                   </div>
                 );
               })}
 
-              {/* Loading State Bubble */}
               {isLoading && (
-                <div className="flex gap-3 items-start">
-                  <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-cyan-600 to-blue-600 flex items-center justify-center flex-shrink-0 text-white shadow-md shadow-cyan-900/40">
-                    <ShieldCheck className="w-4 h-4" />
-                  </div>
-                  <div className="p-4 rounded-2xl rounded-bl-none bg-[#0c1222] border border-slate-800 text-xs text-slate-300 flex items-center gap-3">
-                    <Loader2 className="w-4 h-4 text-cyan-400 animate-spin" />
-                    <span>Cross-referencing claim across forensic intelligence models...</span>
-                  </div>
+                <div
+                  role="status"
+                  aria-live="polite"
+                  className="flex items-center gap-2 pl-10 font-mono text-[11px] text-slate-400"
+                >
+                  <Loader2 className="h-3.5 w-3.5 animate-spin text-blue-400" />
+                  Checking…
                 </div>
               )}
 
@@ -956,100 +541,88 @@ export default function ChatPage() {
           )}
         </div>
 
-        {/* BOTTOM INPUT BAR */}
-        <div className="border-t border-slate-800/80 p-3 sm:p-4 bg-[#080d1a]/95 backdrop-blur-md flex-shrink-0">
-          <div className="max-w-3xl mx-auto space-y-2">
-            {/* Image Preview Chip if attached */}
+        <div className="shrink-0 border-t border-slate-800/80 bg-[#070b14]/90 px-3 pb-3 pt-3 backdrop-blur-xl sm:px-4 sm:pb-4">
+          <div className="mx-auto max-w-2xl">
             {imagePreview && (
-              <div className="flex items-center justify-between p-2 rounded-xl bg-slate-900 border border-slate-800 text-xs">
-                <div className="flex items-center gap-2">
+              <div className="mb-2 flex items-center justify-between gap-3 rounded-xl border border-slate-800 bg-slate-900/80 p-2">
+                <div className="flex min-w-0 items-center gap-2.5">
                   <img
                     src={imagePreview.data}
-                    alt="Preview"
-                    className="w-10 h-10 rounded object-cover border border-slate-700"
+                    alt="Image preview"
+                    className="h-9 w-9 rounded object-cover"
                   />
-                  <div>
-                    <span className="font-semibold text-white block truncate max-w-xs">
-                      {imagePreview.name}
-                    </span>
-                    <span className="text-[10px] text-cyan-400 font-mono">Image attached for forensic check</span>
-                  </div>
+                  <span className="truncate text-xs text-slate-300">{imagePreview.name}</span>
                 </div>
                 <button
+                  type="button"
                   onClick={() => setImagePreview(null)}
-                  className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800"
+                  aria-label="Remove attachment"
+                  className="rounded-md p-1.5 text-slate-400 hover:bg-slate-800/60 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
                 >
-                  <X className="w-4 h-4" />
+                  <X className="h-4 w-4" />
                 </button>
               </div>
             )}
 
-            {/* Input Form Box */}
             <form
-              onSubmit={(e) => {
-                e.preventDefault();
+              onSubmit={(event) => {
+                event.preventDefault();
                 handleSendMessage();
               }}
-              className="relative flex items-end gap-2 bg-[#0d1428] border border-slate-700/80 rounded-2xl p-2 focus-within:border-cyan-500/80 transition-colors shadow-xl"
+              className="flex items-end gap-1 rounded-xl border border-slate-800 bg-[#090e1c] p-1.5 shadow-xl transition-all focus-within:border-blue-500 focus-within:ring-1 focus-within:ring-blue-500"
             >
-              {/* Hidden file input */}
               <input
                 ref={fileInputRef}
                 type="file"
                 accept="image/*"
                 onChange={handleImageUpload}
                 className="hidden"
+                aria-label="Attach an image"
               />
-
-              {/* Attach Image Button */}
               <button
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
-                className="p-2.5 rounded-xl text-slate-400 hover:text-cyan-400 hover:bg-slate-800/80 transition-colors flex-shrink-0"
-                title="Attach claim image or screenshot"
+                aria-label="Attach image"
+                className="grid h-9 w-9 shrink-0 place-items-center rounded-lg text-slate-400 transition-colors hover:bg-slate-800/60 hover:text-blue-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
               >
-                <ImageIcon className="w-4 h-4" />
+                <ImageIcon className="h-4 w-4" />
               </button>
-
-              {/* Textarea */}
               <textarea
                 ref={textareaRef}
                 value={inputMessage}
-                onChange={(e) => setInputMessage(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" && !e.shiftKey) {
-                    e.preventDefault();
+                onChange={(event) => setInputMessage(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter" && !event.shiftKey) {
+                    event.preventDefault();
                     handleSendMessage();
                   }
                 }}
                 rows={1}
-                placeholder="Paste any headline, claim, rumor, or question..."
-                className="flex-1 bg-transparent border-0 text-xs sm:text-sm text-white placeholder-slate-400 focus:outline-none resize-none py-2 px-1 max-h-32 min-h-[38px]"
+                aria-label="Message"
+                placeholder="Paste a claim or ask anything…"
+                className="auto-grow min-h-[36px] flex-1 resize-none bg-transparent px-1 py-2 text-sm text-white placeholder:text-slate-500 focus:outline-none"
               />
-
-              {/* Send Button */}
               <button
                 type="submit"
                 disabled={(!inputMessage.trim() && !imagePreview) || isLoading}
+                aria-label="Send message"
                 className={cn(
-                  "p-2.5 rounded-xl text-white transition-all flex-shrink-0 flex items-center justify-center",
+                  "grid h-9 w-9 shrink-0 place-items-center rounded-lg transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500",
                   (!inputMessage.trim() && !imagePreview) || isLoading
-                    ? "bg-slate-800 text-slate-400 cursor-not-allowed"
-                    : "bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-500 hover:to-cyan-500 shadow-md shadow-blue-900/30 active:scale-95"
+                    ? "cursor-not-allowed bg-slate-800 text-slate-500"
+                    : "bg-gradient-to-r from-blue-600 to-cyan-600 text-white shadow-md shadow-blue-900/30 hover:from-blue-500 hover:to-cyan-500"
                 )}
-                title="Send message"
               >
                 {isLoading ? (
-                  <Loader2 className="w-4 h-4 animate-spin text-white" />
+                  <Loader2 className="h-4 w-4 animate-spin" />
                 ) : (
-                  <Send className="w-4 h-4" />
+                  <ArrowUp className="h-4 w-4" />
                 )}
               </button>
             </form>
 
-            {/* Disclaimer */}
-            <p className="text-[10px] text-center text-slate-400 font-mono">
-              Truth Lens verifies claims using Groq LLM intelligence & consensus registries. Always consult accredited healthcare and legal professionals for critical decisions.
+            <p className="mt-2 text-center font-mono text-[10px] text-slate-500">
+              AI can be wrong. Verify what matters.
             </p>
           </div>
         </div>

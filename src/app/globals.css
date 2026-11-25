@@ -135,3 +135,17 @@
 .transform-style-3d {
   transform-style: preserve-3d;
 }
+
+/* Composer textarea grows with content, capped to keep the input bar compact */
+.auto-grow {
+  field-sizing: content;
+  max-height: 8rem;
+}
+
+/* Ambient grid shared with the dashboard shell */
+.app-grid {
+  background-size: 32px 32px;
+  background-image:
+    linear-gradient(to right, rgba(59, 130, 246, 0.2) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(59, 130, 246, 0.2) 1px, transparent 1px);
+}
